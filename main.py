@@ -3,9 +3,9 @@ import random
 
 #params
 FIELD_SIZE = 9
-POPULATION_SIZE = 1000
+POPULATION_SIZE = 5000
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)
-INITIAL_START = (8, 0)
+INITIAL_START = (5, 5)
 MUTATE_PROB = 0.01
 CROSS_OVER_POINT = 2
 VERBOSE = 10
@@ -166,7 +166,7 @@ def fitness_function(population, initial_start, iteration, drones, drone_index):
     angles /= (4 * STEP_COUNT)  #azaltacağız
     correct_finish /= FIELD_SIZE * np.sqrt(2)   #azaltscağız
 
-    path_difference /= STEP_COUNT
+    path_difference = (STEP_COUNT - path_difference) / STEP_COUNT
 
     probabilities = areas + angles + correct_finish + path_difference
     probabilities /= probabilities.sum()
@@ -179,7 +179,7 @@ def fitness_function(population, initial_start, iteration, drones, drone_index):
               f'angles : \n{angles[np.argmax(probabilities)].T * (4 * STEP_COUNT)}\n')
         print_path(population[np.argmax(probabilities)])
 
-    return probabilities * 100#1 / probabilities
+    return probabilities * 100
 
 
 def cross_over(X, Y):
@@ -215,7 +215,7 @@ def start_field_scanning(drone_count, population_size, initial_start):
         # init population
         population = np.random.randint(low=1, high=9, size=(population_size, STEP_COUNT))
         new_population = np.zeros(shape=(population_size, STEP_COUNT), dtype=np.int32)
-        best_individual = np.ones(shape=(1, STEP_COUNT), dtype=np.int32)
+        best_individuals = np.ones(shape=(GENERATION, STEP_COUNT), dtype=np.int32)
         best_individual_probability = -1
         generation = 0
 
@@ -240,12 +240,17 @@ def start_field_scanning(drone_count, population_size, initial_start):
             success = np.argsort(population_probabilities, axis=0)
             success_population = np.take_along_axis(population, success, 0)
 
-            best_individual = success_population[-1]
+            best_individuals[generation - 1] = success_population[-1]
 
             new_population[SUCCESS_GENS:, :] = success_population[SUCCESS_GENS:, :]
             population = new_population
 
-        drones[drone_index] = best_individual
+        #we got all successful individuals in every generation
+        success_population_prob = fitness_function(best_individuals, initial_start, generation, drones, drone_index)
+        success = np.argsort(success_population_prob, axis=0)
+        success_population = np.take_along_axis(best_individuals, success, 0)
+
+        drones[drone_index] = success_population[-1]
 
     print('Done!')
     for index in range(len(drones)):
