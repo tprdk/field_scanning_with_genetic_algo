@@ -9,7 +9,7 @@ FIELD_SIZE = 9
 POPULATION_SIZE = 200
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)
 INITIAL_START = (4, 4)
-MUTATE_PROB = 0.05
+MUTATE_PROB = 0.01
 CROSS_OVER_POINT = 2
 VERBOSE = 10
 GENERATION = 100
@@ -17,6 +17,7 @@ DRONE_COUNT = 2
 STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT)
 
 colors = ['blue', 'green', 'lime', 'cyan']
+plt.rcParams.update({'font.size': 18})
 
 # 2 1 8
 # 3 0 7
@@ -76,7 +77,8 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     fig = plt.figure()
     fig.suptitle(f'Populasyon : {POPULATION_SIZE} Jenerasyon : {GENERATION} '
                  f'Mutasyon Oranı : {MUTATE_PROB} Crossover Noktası : {CROSS_OVER_POINT} '
-                 f'\nToplam Drone Sayısı : {DRONE_COUNT} Drone index : {drone_index + 1} ', fontsize=16)
+                 f'\nMax Drone Hareketi : {STEP_COUNT} Başlangıç Noktası : {INITIAL_START}'
+                 f' Toplam Drone Sayısı : {DRONE_COUNT} Drone index : {drone_index + 1} ')
     ax1 = fig.add_subplot(221)
     ax2 = fig.add_subplot(222)
     ax3 = fig.add_subplot(223)
@@ -90,7 +92,7 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     #ax4.title.set_text('Prob')
 
     ax1.plot(areas)
-    ax2.plot(angles)
+    ax2.plot(angles * 45)
     ax3.plot(correct_finish)
     ax4.plot(path_difference)
 
@@ -121,6 +123,7 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
     ax1.plot(probabilities)
+    ax1.title.set_text('Jenerasyonların İyilikleri')
     plt.savefig(f'plot/p{POPULATION_SIZE}_g{GENERATION}_m{MUTATE_PROB}_d{DRONE_COUNT}_{drone_index + 1}_prob.png')
     plt.close(fig)
     print('saved')
@@ -164,9 +167,11 @@ def calculate_scanned_area_of_all_drones(drones, initial_start):
 
     x, y = initial_start
     plt.plot(y, x, 'ro', color='black')
-
+    plt.title(f'Taranan Toplam Alan : {mask.sum()}')
     plt.gca().invert_yaxis()
-    plt.show()
+    plt.savefig(f'plot/p{POPULATION_SIZE}_g{GENERATION}_m{MUTATE_PROB}_d{DRONE_COUNT}_path.png')
+    plt.close()
+
 
 
 
@@ -268,7 +273,10 @@ def fitness_function(population, initial_start, iteration, drones, drone_index):
     probabilities /= max(probabilities)
 
     probabilities = 1 - probabilities
-    probabilities /= max(probabilities)
+    if max(probabilities) != 0:
+        probabilities /= max(probabilities)
+    else:
+        probabilities += 1
 
     if iteration % VERBOSE == 0:
         print(f'Best gene\nunscanned area :\n {areas[np.argmax(probabilities)].T * STEP_COUNT}\n'
