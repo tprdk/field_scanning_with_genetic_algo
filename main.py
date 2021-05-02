@@ -1,17 +1,21 @@
 import numpy as np
 import random
+import time
+import matplotlib.pyplot as plt
 
 #params
 FIELD_SIZE = 9
-POPULATION_SIZE = 5000
+POPULATION_SIZE = 500
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)
-INITIAL_START = (5, 5)
-MUTATE_PROB = 0.01
+INITIAL_START = (8, 0)
+MUTATE_PROB = 0.05
 CROSS_OVER_POINT = 2
 VERBOSE = 10
 GENERATION = 200
-DRONE_COUNT = 2
-STEP_COUNT = int(FIELD_SIZE**2 / DRONE_COUNT)
+DRONE_COUNT = 4
+STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT)
+
+colors = ['blue', 'green', 'lime', 'cyan']
 
 # 2 1 8
 # 3 0 7
@@ -55,24 +59,54 @@ directions = {
     8 : (-1, 1)
 }
 
+def print_scanned_area(best_individuals):
+    pass
+
+def print_sum_angle(best_individuals):
+    pass
+
+def print_distance_from_start_point(best_individuals):
+    pass
+
 def calculate_scanned_area_of_all_drones(drones, initial_start):
     mask = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int)
     drone_paths = np.zeros(shape=(drones.shape[0], FIELD_SIZE, FIELD_SIZE), dtype=np.int)
+    drone_paths_plot = np.zeros(shape=(drones.shape[0], drones.shape[1] + 1, 2), dtype=np.int)
 
+    coordinate_indexes = np.zeros(shape=(drones.shape[0]), dtype='int')
     for index, drone in enumerate(drones):
         (x, y) = initial_start
         i = 0
+        drone_paths_plot[index][coordinate_indexes[index]] = (x, y)
         while i < drone.shape[0] and drone[i] != 0:
             (_x, _y) = directions[drone[i]]
             if 0 <= x + _x <= 8 and 0 <= y + _y <= 8:
                 x += _x
                 y += _y
                 drone_paths[index][x][y] = 1
+                drone_paths_plot[index][coordinate_indexes[index] + 1] = (x, y)
+                coordinate_indexes[index] += 1
             i += 1
 
     for index in range(len(drones)):
         mask = np.logical_or(mask, drone_paths[index])
 
+    plt.xticks(np.arange(-1, 9, 1))
+    plt.yticks(np.arange(-1, 9, 1))
+    plt.xlim(-1, 9)
+    plt.ylim(-1, 9)
+
+    for i in range(drone_paths_plot.shape[0]):
+        x = drone_paths_plot[i][0:coordinate_indexes[i] - 1, 0]
+        y = drone_paths_plot[i][0:coordinate_indexes[i] - 1, 1]
+        plt.plot(y, x, '-', color=colors[i])
+        plt.plot(y[-1], x[-1], 'ro', color=colors[i])
+
+    x, y = initial_start
+    plt.plot(y, x, 'ro', color='black')
+
+    plt.gca().invert_yaxis()
+    plt.show()
     print(f'scanned = {mask.sum()}')
 
 
@@ -94,6 +128,7 @@ def print_path(path):
             print(f'{area[i][j]:>3}', end=' ')
         print()
 
+
 def calculate_sum_angle(individual):
     i = 0
     angle = 0
@@ -110,9 +145,7 @@ def calculate_sum_angle(individual):
         i += 1
     return angle
 
-    # 2 1 8
-    # 3 0 7
-    # 4 5 6
+
 def calculate_scanned_area(individual, initial_start, drones, drone_count):
     #best dronların pathini oluştur
     drone_paths = np.zeros(shape=(drone_count, FIELD_SIZE, FIELD_SIZE), dtype=np.int)
@@ -162,24 +195,27 @@ def fitness_function(population, initial_start, iteration, drones, drone_index):
         angles[index] = calculate_sum_angle(individual)
 
     areas = STEP_COUNT - areas
-    areas /= STEP_COUNT #azalacağız
+    #gezilmemiş alan
+    areas /= STEP_COUNT #azaltacağız
+    #gezilen açı
     angles /= (4 * STEP_COUNT)  #azaltacağız
+    #uzaklık
     correct_finish /= FIELD_SIZE * np.sqrt(2)   #azaltscağız
-
-    path_difference = (STEP_COUNT - path_difference) / STEP_COUNT
+    #ortak yol
+    path_difference /= STEP_COUNT
 
     probabilities = areas + angles + correct_finish + path_difference
     probabilities /= probabilities.sum()
 
     probabilities = 1 - probabilities
-    probabilities /= probabilities.sum()
 
     if iteration % VERBOSE == 0:
         print(f'Best gene\nunscanned area :\n {areas[np.argmax(probabilities)].T * STEP_COUNT}\n'
               f'angles : \n{angles[np.argmax(probabilities)].T * (4 * STEP_COUNT)}\n')
         print_path(population[np.argmax(probabilities)])
+        print(np.round(time.time() - start_time, 4))
 
-    return probabilities * 100
+    return probabilities# * 100
 
 
 def cross_over(X, Y):
@@ -210,13 +246,14 @@ def selection(population, population_probabilities):
 
 def start_field_scanning(drone_count, population_size, initial_start):
     drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int)
+    worst_drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int)
 
     for drone_index in range(drone_count):
         # init population
         population = np.random.randint(low=1, high=9, size=(population_size, STEP_COUNT))
         new_population = np.zeros(shape=(population_size, STEP_COUNT), dtype=np.int32)
         best_individuals = np.ones(shape=(GENERATION, STEP_COUNT), dtype=np.int32)
-        best_individual_probability = -1
+        worst_individuals = np.ones(shape=(GENERATION, STEP_COUNT), dtype=np.int32)
         generation = 0
 
         while generation < GENERATION:
@@ -241,24 +278,32 @@ def start_field_scanning(drone_count, population_size, initial_start):
             success_population = np.take_along_axis(population, success, 0)
 
             best_individuals[generation - 1] = success_population[-1]
+            worst_individuals[generation - 1] = success_population[0]
 
             new_population[SUCCESS_GENS:, :] = success_population[SUCCESS_GENS:, :]
             population = new_population
 
         #we got all successful individuals in every generation
+        print_scanned_area(best_individuals)
+        print_sum_angle(best_individuals)
+        print_distance_from_start_point(best_individuals)
+
         success_population_prob = fitness_function(best_individuals, initial_start, generation, drones, drone_index)
         success = np.argsort(success_population_prob, axis=0)
         success_population = np.take_along_axis(best_individuals, success, 0)
 
         drones[drone_index] = success_population[-1]
+        worst_drones[drone_index] = success_population[0]
 
     print('Done!')
     for index in range(len(drones)):
-        print(f'Birey : {index}\n')
+        print(f'Birey best: {index}\n')
         print_path(drones[index])
 
+    print('Best:')
     calculate_scanned_area_of_all_drones(drones, initial_start)
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     start_field_scanning(DRONE_COUNT, POPULATION_SIZE, INITIAL_START)
