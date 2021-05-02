@@ -18,6 +18,7 @@ STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT)
 
 colors = ['blue', 'green', 'lime', 'cyan']
 plt.rcParams.update({'font.size': 18})
+np.warnings.filterwarnings('ignore')
 
 # 2 1 8
 # 3 0 7
@@ -373,5 +374,4 @@ def start_field_scanning(drone_count, population_size, initial_start):
 
 if __name__ == '__main__':
     start_time = time.time()
-    print(matplotlib.get_backend())
     start_field_scanning(DRONE_COUNT, POPULATION_SIZE, INITIAL_START)
