@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 
 #params
 FIELD_SIZE = 9
-POPULATION_SIZE = 500
+POPULATION_SIZE = 100
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)
 INITIAL_START = (8, 0)
 MUTATE_PROB = 0.05
 CROSS_OVER_POINT = 2
 VERBOSE = 10
-GENERATION = 200
+GENERATION = 500
 DRONE_COUNT = 4
 STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT)
 
@@ -59,14 +59,34 @@ directions = {
     8 : (-1, 1)
 }
 
-def print_scanned_area(best_individuals):
-    pass
+def print_all_statistics(best_individuals, initial_start, drones, drone_index):
+    areas = np.zeros(shape=(best_individuals.shape[0], 1))
+    correct_finish = np.zeros(shape=(best_individuals.shape[0], 1))
+    path_difference = np.zeros(shape=(best_individuals.shape[0], 1))
+    angles = np.zeros(shape=(best_individuals.shape[0], 1))
 
-def print_sum_angle(best_individuals):
-    pass
+    for index, individual in enumerate(best_individuals):
+        areas[index], correct_finish[index], path_difference[index] = \
+            calculate_scanned_area(individual, initial_start, drones, drone_index)
+        angles[index] = calculate_sum_angle(individual)
 
-def print_distance_from_start_point(best_individuals):
-    pass
+    fig = plt.figure()
+    ax1 = fig.add_subplot(221)
+    ax2 = fig.add_subplot(222)
+    ax3 = fig.add_subplot(223)
+    ax4 = fig.add_subplot(224)
+
+    ax1.title.set_text('Taranan Yol')
+    ax2.title.set_text('Yapılan Açı')
+    ax3.title.set_text('Başlangıca Olan Uzaklık')
+    ax4.title.set_text('Diğer Dronelar ile ortak yol')
+
+    ax1.plot(areas)
+    ax2.plot(angles)
+    ax3.plot(correct_finish)
+    ax4.plot(path_difference)
+    plt.show()
+
 
 def calculate_scanned_area_of_all_drones(drones, initial_start):
     mask = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int)
@@ -284,9 +304,7 @@ def start_field_scanning(drone_count, population_size, initial_start):
             population = new_population
 
         #we got all successful individuals in every generation
-        print_scanned_area(best_individuals)
-        print_sum_angle(best_individuals)
-        print_distance_from_start_point(best_individuals)
+        print_all_statistics(best_individuals, initial_start, drones, drone_index)
 
         success_population_prob = fitness_function(best_individuals, initial_start, generation, drones, drone_index)
         success = np.argsort(success_population_prob, axis=0)
