@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 
 #params
 FIELD_SIZE = 9
-POPULATION_SIZE = 100
+POPULATION_SIZE = 1000
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)
-INITIAL_START = (8, 0)
+INITIAL_START = (4, 4)
 MUTATE_PROB = 0.05
 CROSS_OVER_POINT = 2
 VERBOSE = 10
-GENERATION = 500
-DRONE_COUNT = 4
+GENERATION = 200
+DRONE_COUNT = 2
 STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT)
 
 colors = ['blue', 'green', 'lime', 'cyan']
@@ -70,21 +70,44 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
             calculate_scanned_area(individual, initial_start, drones, drone_index)
         angles[index] = calculate_sum_angle(individual)
 
+
+
     fig = plt.figure()
     ax1 = fig.add_subplot(221)
     ax2 = fig.add_subplot(222)
     ax3 = fig.add_subplot(223)
     ax4 = fig.add_subplot(224)
+    #ax5 = fig.add_subplot(325)
 
-    ax1.title.set_text('Taranan Yol')
+    ax1.title.set_text('Taranan Alan')
     ax2.title.set_text('Yapılan Açı')
     ax3.title.set_text('Başlangıca Olan Uzaklık')
-    ax4.title.set_text('Diğer Dronelar ile ortak yol')
+    #ax4.title.set_text('Diğer Dronelar ile ortak yol')
+    ax4.title.set_text('Prob')
 
     ax1.plot(areas)
     ax2.plot(angles)
     ax3.plot(correct_finish)
-    ax4.plot(path_difference)
+    #ax4.plot(path_difference)
+
+    areas = STEP_COUNT - areas
+    # gezilmemiş alan
+    areas /= STEP_COUNT  # azaltacağız
+    # gezilen açı
+    angles /= (4 * STEP_COUNT)  # azaltacağız
+    # uzaklık
+    correct_finish /= FIELD_SIZE * np.sqrt(2)  # azaltscağız
+    # ortak yol
+    path_difference /= STEP_COUNT
+
+    probabilities = areas + angles + correct_finish + path_difference
+    probabilities /= max(probabilities)
+
+    probabilities = 1 - probabilities
+    probabilities /= max(probabilities)
+    probabilities *= 100
+
+    ax4.plot(probabilities)
     plt.show()
 
 
@@ -98,7 +121,7 @@ def calculate_scanned_area_of_all_drones(drones, initial_start):
         (x, y) = initial_start
         i = 0
         drone_paths_plot[index][coordinate_indexes[index]] = (x, y)
-        while i < drone.shape[0] and drone[i] != 0:
+        while i < drone.shape[0]:
             (_x, _y) = directions[drone[i]]
             if 0 <= x + _x <= 8 and 0 <= y + _y <= 8:
                 x += _x
@@ -111,14 +134,16 @@ def calculate_scanned_area_of_all_drones(drones, initial_start):
     for index in range(len(drones)):
         mask = np.logical_or(mask, drone_paths[index])
 
+    print(f'scanned = {mask.sum()}')
+
     plt.xticks(np.arange(-1, 9, 1))
     plt.yticks(np.arange(-1, 9, 1))
     plt.xlim(-1, 9)
     plt.ylim(-1, 9)
 
     for i in range(drone_paths_plot.shape[0]):
-        x = drone_paths_plot[i][0:coordinate_indexes[i] - 1, 0]
-        y = drone_paths_plot[i][0:coordinate_indexes[i] - 1, 1]
+        x = drone_paths_plot[i][0:coordinate_indexes[i] + 1, 0]
+        y = drone_paths_plot[i][0:coordinate_indexes[i] + 1, 1]
         plt.plot(y, x, '-', color=colors[i])
         plt.plot(y[-1], x[-1], 'ro', color=colors[i])
 
@@ -127,7 +152,7 @@ def calculate_scanned_area_of_all_drones(drones, initial_start):
 
     plt.gca().invert_yaxis()
     plt.show()
-    print(f'scanned = {mask.sum()}')
+
 
 
 def print_path(path):
@@ -135,7 +160,7 @@ def print_path(path):
     (x, y) = INITIAL_START
     area = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int8)
     area[x][y] = 1
-    while i + 1 < path.shape[0] and path[i + 1] != 0:
+    while i < path.shape[0]:
         (_x, _y) = directions[path[i]]
         if 0 <= x + _x <= 8 and 0 <= y + _y <= 8:
             x += _x
@@ -153,7 +178,7 @@ def calculate_sum_angle(individual):
     i = 0
     angle = 0
     # 4 4 5 6 1 2 3 8 7 4 5 6
-    while i + 1 < individual.shape[0] and individual[i + 1] != 0:
+    while i + 1 < individual.shape[0]:
         current = individual[i]
         _next = individual[i + 1]
         _max = max(current, _next)
@@ -172,7 +197,7 @@ def calculate_scanned_area(individual, initial_start, drones, drone_count):
     (x, y) = initial_start
     for index, drone in enumerate(drones):
         i = 0
-        while i < drone.shape[0] and drone[i] != 0 and index < drone_count:
+        while i < drone.shape[0] and index < drone_count:
             (_x, _y) = directions[drone[i]]
             if 0 <= x + _x <= 8 and 0 <= y + _y <= 8:
                 x += _x
@@ -185,7 +210,7 @@ def calculate_scanned_area(individual, initial_start, drones, drone_count):
     (x, y) = initial_start
     area[x][y] = 1
 
-    while i < individual.shape[0] and individual[i] != 0:
+    while i < individual.shape[0]:
         (_x, _y) = directions[individual[i]]
         if 0 <= x + _x <= 8 and 0 <= y + _y <= 8:
             x += _x
@@ -225,9 +250,10 @@ def fitness_function(population, initial_start, iteration, drones, drone_index):
     path_difference /= STEP_COUNT
 
     probabilities = areas + angles + correct_finish + path_difference
-    probabilities /= probabilities.sum()
+    probabilities /= max(probabilities)
 
     probabilities = 1 - probabilities
+    probabilities /= max(probabilities)
 
     if iteration % VERBOSE == 0:
         print(f'Best gene\nunscanned area :\n {areas[np.argmax(probabilities)].T * STEP_COUNT}\n'
@@ -235,7 +261,7 @@ def fitness_function(population, initial_start, iteration, drones, drone_index):
         print_path(population[np.argmax(probabilities)])
         print(np.round(time.time() - start_time, 4))
 
-    return probabilities# * 100
+    return probabilities * 100
 
 
 def cross_over(X, Y):
