@@ -2,16 +2,17 @@ import numpy as np
 import random
 import time
 import matplotlib.pyplot as plt
+import matplotlib
 
 #params
 FIELD_SIZE = 9
-POPULATION_SIZE = 1000
+POPULATION_SIZE = 200
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)
 INITIAL_START = (4, 4)
 MUTATE_PROB = 0.05
 CROSS_OVER_POINT = 2
 VERBOSE = 10
-GENERATION = 200
+GENERATION = 100
 DRONE_COUNT = 2
 STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT)
 
@@ -73,6 +74,9 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
 
 
     fig = plt.figure()
+    fig.suptitle(f'Populasyon : {POPULATION_SIZE} Jenerasyon : {GENERATION} '
+                 f'Mutasyon Oranı : {MUTATE_PROB} Crossover Noktası : {CROSS_OVER_POINT} '
+                 f'\nToplam Drone Sayısı : {DRONE_COUNT} Drone index : {drone_index + 1} ', fontsize=16)
     ax1 = fig.add_subplot(221)
     ax2 = fig.add_subplot(222)
     ax3 = fig.add_subplot(223)
@@ -82,13 +86,13 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     ax1.title.set_text('Taranan Alan')
     ax2.title.set_text('Yapılan Açı')
     ax3.title.set_text('Başlangıca Olan Uzaklık')
-    #ax4.title.set_text('Diğer Dronelar ile ortak yol')
-    ax4.title.set_text('Prob')
+    ax4.title.set_text('Diğer Dronelar ile ortak yol')
+    #ax4.title.set_text('Prob')
 
     ax1.plot(areas)
     ax2.plot(angles)
     ax3.plot(correct_finish)
-    #ax4.plot(path_difference)
+    ax4.plot(path_difference)
 
     areas = STEP_COUNT - areas
     # gezilmemiş alan
@@ -107,14 +111,25 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     probabilities /= max(probabilities)
     probabilities *= 100
 
-    ax4.plot(probabilities)
-    plt.show()
+    #ax4.plot(probabilities)
+    manager = plt.get_current_fig_manager()
+    manager.full_screen_toggle()
+    #plt.show()
+    plt.savefig(f'plot/p{POPULATION_SIZE}_g{GENERATION}_m{MUTATE_PROB}_d{DRONE_COUNT}_{drone_index + 1}_fitness.png')
+    plt.close(fig)
+
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax1.plot(probabilities)
+    plt.savefig(f'plot/p{POPULATION_SIZE}_g{GENERATION}_m{MUTATE_PROB}_d{DRONE_COUNT}_{drone_index + 1}_prob.png')
+    plt.close(fig)
+    print('saved')
 
 
 def calculate_scanned_area_of_all_drones(drones, initial_start):
-    mask = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int)
-    drone_paths = np.zeros(shape=(drones.shape[0], FIELD_SIZE, FIELD_SIZE), dtype=np.int)
-    drone_paths_plot = np.zeros(shape=(drones.shape[0], drones.shape[1] + 1, 2), dtype=np.int)
+    mask = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
+    drone_paths = np.zeros(shape=(drones.shape[0], FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
+    drone_paths_plot = np.zeros(shape=(drones.shape[0], drones.shape[1] + 1, 2), dtype=np.int32)
 
     coordinate_indexes = np.zeros(shape=(drones.shape[0]), dtype='int')
     for index, drone in enumerate(drones):
@@ -193,7 +208,7 @@ def calculate_sum_angle(individual):
 
 def calculate_scanned_area(individual, initial_start, drones, drone_count):
     #best dronların pathini oluştur
-    drone_paths = np.zeros(shape=(drone_count, FIELD_SIZE, FIELD_SIZE), dtype=np.int)
+    drone_paths = np.zeros(shape=(drone_count, FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
     (x, y) = initial_start
     for index, drone in enumerate(drones):
         i = 0
@@ -221,7 +236,7 @@ def calculate_scanned_area(individual, initial_start, drones, drone_count):
     (_x, _y) = initial_start
     start_and_stop_point_diff = np.sqrt(np.sum((x - _x)**2  + (y - _y)**2))
 
-    common_path = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int)
+    common_path = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
     for index in range(drone_count):
         common_path += drone_paths[index] * area
 
@@ -291,8 +306,8 @@ def selection(population, population_probabilities):
 
 
 def start_field_scanning(drone_count, population_size, initial_start):
-    drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int)
-    worst_drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int)
+    drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int32)
+    worst_drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int32)
 
     for drone_index in range(drone_count):
         # init population
@@ -350,4 +365,5 @@ def start_field_scanning(drone_count, population_size, initial_start):
 
 if __name__ == '__main__':
     start_time = time.time()
+    print(matplotlib.get_backend())
     start_field_scanning(DRONE_COUNT, POPULATION_SIZE, INITIAL_START)
