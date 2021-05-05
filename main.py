@@ -2,9 +2,7 @@ import numpy as np
 import random
 import time
 import matplotlib.pyplot as plt
-import matplotlib
 from PIL import Image
-
 
 
 #params
@@ -13,8 +11,8 @@ POPULATION_SIZE = 1000# popülasyon büyüklüğü
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)   # bir sonraki jenerasyona aktarılacak birey sayısı
 INITIAL_START = (8, 4)  # başlangıç noktası
 MUTATE_PROB = 0.01  # mutasyon oranı
-CROSS_OVER_POINT = 2    # crossover yapılacak nokta sayısı
-VERBOSE = 5000
+CROSS_OVER_POINT = 2   # crossover yapılacak nokta sayısı
+VERBOSE = 5000  # kullanıcıya bilgi verilecek iterasyon katsayısı
 GENERATION = 200    # jenerasyon sayısı
 DRONE_COUNT = 2# drone sayısı
 STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT) # her bir bireyin adım sayısı
@@ -23,36 +21,6 @@ colors = ['blue', 'green', 'lime', 'cyan']  #plot renkleri
 plt.rcParams.update({'font.size': 18})
 np.warnings.filterwarnings('ignore')
 
-# 2 1 8
-# 3 0 7
-# 4 5 6
-
-# 3 - 1  -> 2
-# 3 - 2  -> 1
-# 3 - 3  -> 0
-# 3 - 4  -> 1
-# 3 - 5  -> 2
-# 3 - 6  -> 3
-# 3 - 7  -> 4
-# 3 - 8  -> 3
-
-# 7 - 1  -> 2
-# 7 - 2  -> 3
-# 7 - 3  -> 4
-# 7 - 4  -> 3
-# 7 - 5  -> 2
-# 7 - 6  -> 1
-# 7 - 7  -> 0
-# 7 - 8  -> 1
-
-# 8 - 1  -> 1
-# 8 - 2  -> 2
-# 8 - 3  -> 3
-# 8 - 4  -> 4
-# 8 - 5  -> 3
-# 8 - 6  -> 2
-# 8 - 7  -> 1
-# 8 - 8  -> 0
 
 # gidilecek yönlerin matris karşılığı
 directions = {
@@ -76,13 +44,15 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     '''
     tüm jenerasyonların en başarılı bireyleri için taranan alan, yapılan açı,
     başlangıç-bitiş mesafesi, önceki dronelar ile taranan ortak alan büyüklüğü ve
-    iyilik değerlerinin değişimini gösteren grafikler bastırılır.
+    iyilik değerleri fitness fonksiyonu ile aynı şekilde hesaplanır ve
+    değerlerinin değişimini gösteren grafikler bastırılır.
     :param best_individuals: tüm jenerasyonların en başarılı bireyleri
     :param initial_start:
     :param drones:
     :param drone_index:
     :return:
     '''
+
     areas = np.zeros(shape=(best_individuals.shape[0], 1))
     correct_finish = np.zeros(shape=(best_individuals.shape[0], 1))
     path_difference = np.zeros(shape=(best_individuals.shape[0], 1))
@@ -104,13 +74,11 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     ax2 = fig.add_subplot(222)
     ax3 = fig.add_subplot(223)
     ax4 = fig.add_subplot(224)
-    #ax5 = fig.add_subplot(325)
 
     ax1.title.set_text('Taranan Alan')
     ax2.title.set_text('Yapılan Açı')
     ax3.title.set_text('Başlangıca Olan Uzaklık')
     ax4.title.set_text('Diğer Dronelar ile ortak yol')
-    #ax4.title.set_text('Prob')
 
     ax1.plot(areas)
     ax2.plot(angles * 45)
@@ -134,10 +102,8 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     probabilities /= max(probabilities)
     probabilities *= 100
 
-    #ax4.plot(probabilities)
     manager = plt.get_current_fig_manager()
     manager.full_screen_toggle()
-    #plt.show()
     plt.savefig(f'plot/p{POPULATION_SIZE}_g{GENERATION}_m{MUTATE_PROB}_d{DRONE_COUNT}_{drone_index + 1}_fitness.png')
     plt.close(fig)
 
@@ -176,6 +142,7 @@ def calculate_scanned_area_of_all_drones(drones, initial_start):
                 coordinate_indexes[index] += 1
             i += 1
 
+
     for index in range(len(drones)):
         mask = np.logical_or(mask, drone_paths[index])
 
@@ -209,6 +176,7 @@ def print_path(path):
     (x, y) = INITIAL_START
     area = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int8)
     area[x][y] = 1
+    #bireyin taradığı alan hesaplanır
     while i < path.shape[0]:
         (_x, _y) = directions[path[i]]
         if 0 <= x + _x <= 8 and 0 <= y + _y <= 8:
@@ -226,6 +194,20 @@ def print_path(path):
 def calculate_sum_angle(individual):
     '''
     Bireyin yaptığı açı bulunur.
+    Yapılan açı hesaplanırken drone'un güncel yönü ve dönüş yönü kullanılmıştır.
+    drone yönü ve gidilecek yön arasındaki fark 4'ten küçük ise max olan yönden min olan yön çıkarılarak dönüş açısı bulunur.
+    ancak fark 4'ten büyük ise min olan yönden max olan yön çıkarılır ve 8 eklenerek değişen açı miktarı bulunmuş olur.
+    Örnek olarak:
+    Drone yönü - Gidilecek yön -> Yapılan 45 derecelik açı miktarı
+    # 7 - 1  -> 2                    # 1 - 7 + 8 = 2
+    # 7 - 2  -> 3                    # 2 - 7 + 8 = 3
+    # 7 - 3  -> 4                    # 7 - 3 = 4
+    # 7 - 4  -> 3                    # 7 - 4 = 3
+    # 7 - 5  -> 2                    # 7 - 5 = 2
+    # 7 - 6  -> 1                    # 7 - 6 = 1
+    # 7 - 7  -> 0                    # 7 - 7 = 0
+    # 7 - 8  -> 1                    # 8 - 7 = 1
+
     :param individual: birey
     :return: angle: yapılan toplam açı
     '''
