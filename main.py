@@ -3,13 +3,16 @@ import random
 import time
 import matplotlib.pyplot as plt
 import matplotlib
+from PIL import Image
+
+
 
 #params
 FIELD_SIZE = 9# taranacak alanın satır ve sütun sayısı
-POPULATION_SIZE = 100 # popülasyon büyüklüğü
+POPULATION_SIZE = 1000# popülasyon büyüklüğü
 SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)   # bir sonraki jenerasyona aktarılacak birey sayısı
-INITIAL_START = (4, 4)  # başlangıç noktası
-MUTATE_PROB = 0.1  # mutasyon oranı
+INITIAL_START = (8, 4)  # başlangıç noktası
+MUTATE_PROB = 0.01  # mutasyon oranı
 CROSS_OVER_POINT = 2    # crossover yapılacak nokta sayısı
 VERBOSE = 5000
 GENERATION = 200    # jenerasyon sayısı
@@ -62,6 +65,12 @@ directions = {
     7 : (0, 1),
     8 : (-1, 1)
 }
+
+
+def print_final_path():
+    image = Image.open(f'plot/p{POPULATION_SIZE}_g{GENERATION}_m{MUTATE_PROB}_d{DRONE_COUNT}_path.png')
+    image.show()
+
 
 def print_all_statistics(best_individuals, initial_start, drones, drone_index):
     '''
@@ -142,6 +151,12 @@ def print_all_statistics(best_individuals, initial_start, drones, drone_index):
 
 
 def calculate_scanned_area_of_all_drones(drones, initial_start):
+    '''
+    bütün jenerasyonların tamamlanmasının ardından toplam taranan yol hesaplanır ve png formatında kaydedilir.
+    :param drones:
+    :param initial_start:
+    :return:
+    '''
     mask = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
     drone_paths = np.zeros(shape=(drones.shape[0], FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
     drone_paths_plot = np.zeros(shape=(drones.shape[0], drones.shape[1] + 1, 2), dtype=np.int32)
@@ -447,16 +462,8 @@ def start_field_scanning(drone_count, population_size, initial_start):
         drones[drone_index] = success_population[-1]
         worst_drones[drone_index] = success_population[0]
 
-    print('Done!')
-    # en başarılı bireyin taradığı alan bastırılır
-    for index in range(len(drones)):
-        print(f'Birey best: {index}\n')
-        print_path(drones[index])
-
-    # taranan alan bastırılır
-    print('Best:')
     calculate_scanned_area_of_all_drones(drones, initial_start)
-
+    print_final_path()
 
 if __name__ == '__main__':
     start_time = time.time()
