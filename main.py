@@ -5,18 +5,18 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 #params
-FIELD_SIZE = 9
-POPULATION_SIZE = 200
-SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)
-INITIAL_START = (4, 4)
-MUTATE_PROB = 0.01
-CROSS_OVER_POINT = 2
-VERBOSE = 10
-GENERATION = 100
-DRONE_COUNT = 2
-STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT)
+FIELD_SIZE = 9# taranacak alanın satır ve sütun sayısı
+POPULATION_SIZE = 100 # popülasyon büyüklüğü
+SUCCESS_GENS = int(POPULATION_SIZE - POPULATION_SIZE / 5)   # bir sonraki jenerasyona aktarılacak birey sayısı
+INITIAL_START = (4, 4)  # başlangıç noktası
+MUTATE_PROB = 0.1  # mutasyon oranı
+CROSS_OVER_POINT = 2    # crossover yapılacak nokta sayısı
+VERBOSE = 5000
+GENERATION = 200    # jenerasyon sayısı
+DRONE_COUNT = 2# drone sayısı
+STEP_COUNT = int((FIELD_SIZE**2 - 1) / DRONE_COUNT) # her bir bireyin adım sayısı
 
-colors = ['blue', 'green', 'lime', 'cyan']
+colors = ['blue', 'green', 'lime', 'cyan']  #plot renkleri
 plt.rcParams.update({'font.size': 18})
 np.warnings.filterwarnings('ignore')
 
@@ -51,6 +51,7 @@ np.warnings.filterwarnings('ignore')
 # 8 - 7  -> 1
 # 8 - 8  -> 0
 
+# gidilecek yönlerin matris karşılığı
 directions = {
     1 : (-1, 0),
     2 : (-1, -1),
@@ -63,6 +64,16 @@ directions = {
 }
 
 def print_all_statistics(best_individuals, initial_start, drones, drone_index):
+    '''
+    tüm jenerasyonların en başarılı bireyleri için taranan alan, yapılan açı,
+    başlangıç-bitiş mesafesi, önceki dronelar ile taranan ortak alan büyüklüğü ve
+    iyilik değerlerinin değişimini gösteren grafikler bastırılır.
+    :param best_individuals: tüm jenerasyonların en başarılı bireyleri
+    :param initial_start:
+    :param drones:
+    :param drone_index:
+    :return:
+    '''
     areas = np.zeros(shape=(best_individuals.shape[0], 1))
     correct_finish = np.zeros(shape=(best_individuals.shape[0], 1))
     path_difference = np.zeros(shape=(best_individuals.shape[0], 1))
@@ -174,9 +185,11 @@ def calculate_scanned_area_of_all_drones(drones, initial_start):
     plt.close()
 
 
-
-
 def print_path(path):
+    '''
+    fonksiyona gönderilen bireyin yolunun bastırılması
+    :param path: birey
+    '''
     i = 0
     (x, y) = INITIAL_START
     area = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int8)
@@ -196,9 +209,14 @@ def print_path(path):
 
 
 def calculate_sum_angle(individual):
+    '''
+    Bireyin yaptığı açı bulunur.
+    :param individual: birey
+    :return: angle: yapılan toplam açı
+    '''
+
     i = 0
     angle = 0
-    # 4 4 5 6 1 2 3 8 7 4 5 6
     while i + 1 < individual.shape[0]:
         current = individual[i]
         _next = individual[i + 1]
@@ -212,13 +230,24 @@ def calculate_sum_angle(individual):
     return angle
 
 
-def calculate_scanned_area(individual, initial_start, drones, drone_count):
-    #best dronların pathini oluştur
-    drone_paths = np.zeros(shape=(drone_count, FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
+def calculate_scanned_area(individual, initial_start, drones, drone_index):
+    '''
+    :param individual: birey
+    :param initial_start: başlangıç noktası
+    :param drones: drone listesi
+    :param drone_index: şu an yolu bulunacak olan drone indexi
+
+    :return: area.sum(): bireyin taradığı toplam alan
+    :return: start_and_stop_point_diff: bireyin başlangıç ve bitiş noktası arası uzaklığı
+    :return: common_path.sum(): birey ile listedeki drone'ların taradığı ortak alan
+    '''
+
+    #listedeki dronların yolu bulunur
+    drone_paths = np.zeros(shape=(drone_index, FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
     (x, y) = initial_start
     for index, drone in enumerate(drones):
         i = 0
-        while i < drone.shape[0] and index < drone_count:
+        while i < drone.shape[0] and index < drone_index:
             (_x, _y) = directions[drone[i]]
             if 0 <= x + _x <= 8 and 0 <= y + _y <= 8:
                 x += _x
@@ -226,6 +255,7 @@ def calculate_scanned_area(individual, initial_start, drones, drone_count):
                 drone_paths[index][x][y] = 1
             i += 1
 
+    #bireyin yolu bulunur
     i = 0
     area = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
     (x, y) = initial_start
@@ -239,40 +269,62 @@ def calculate_scanned_area(individual, initial_start, drones, drone_count):
             area[x][y] = 1
         i+=1
 
+    #son konum ile ilk konum arasındaki uzaklık bulunur
     (_x, _y) = initial_start
     start_and_stop_point_diff = np.sqrt(np.sum((x - _x)**2  + (y - _y)**2))
 
+    #bireyin yolu ile listedeki dronların ortak olarak taradıkları alan bulunur
     common_path = np.zeros(shape=(FIELD_SIZE, FIELD_SIZE), dtype=np.int32)
-    for index in range(drone_count):
+    for index in range(drone_index):
         common_path += drone_paths[index] * area
 
     return area.sum(), start_and_stop_point_diff, common_path.sum()
 
 
 def fitness_function(population, initial_start, iteration, drones, drone_index):
+    '''
+    :param population: popülasyon
+    :param initial_start: başlangıç noktası
+    :param iteration: popülasyon indexi
+    :param drones:  drone listesi
+    :param drone_index: şu an yolu bulunacak olan drone indexi
+
+    :return: probabilities: bireylerin iyilikleri
+    '''
+
     angles = np.zeros(shape=(population.shape[0], 1))
     areas  = np.zeros(shape=(population.shape[0], 1))
     correct_finish  = np.zeros(shape=(population.shape[0], 1))
     path_difference  = np.zeros(shape=(population.shape[0], 1))
 
+    #popülasyon içerisindeki her birey için :
+    #taranan alan, başlangıç-bitiş mesafesi, önceki dronelar ile gidilen ortak yol ve toplam yapılan açı bulunur.
     for index, individual in enumerate(population):
         areas[index], correct_finish[index], path_difference[index] = \
                                             calculate_scanned_area(individual, initial_start, drones, drone_index)
         angles[index] = calculate_sum_angle(individual)
 
+    #bulunan değerler min-max normalizasyonu ile normalize edilir.
+    #areas dizisi taranan alanları tutmaktadır. toplam adım sayısından taranan alan çıkartılarak
+    #taranmamış alan bulunur.
     areas = STEP_COUNT - areas
-    #gezilmemiş alan
-    areas /= STEP_COUNT #azaltacağız
-    #gezilen açı
-    angles /= (4 * STEP_COUNT)  #azaltacağız
-    #uzaklık
-    correct_finish /= FIELD_SIZE * np.sqrt(2)   #azaltscağız
-    #ortak yol
+    areas /= STEP_COUNT
+
+    #angles dizisi içerisinde yapılan açılar tutulur
+    angles /= (4 * STEP_COUNT)
+
+    #correct_finish dizisinde başlangıç-bitiş mesafesi tutulur
+    correct_finish /= FIELD_SIZE * np.sqrt(2)
+
+    #path_difference dizisinde önceki drone'lar ile gidilen ortak yol tutulur.
     path_difference /= STEP_COUNT
 
+    #iyilik fonksiyonunu hesaplamak için normalize edilen 4 dizi toplanır ve normalize edilir.
     probabilities = areas + angles + correct_finish + path_difference
     probabilities /= max(probabilities)
 
+    #4 dizinin değerlerini azaltmak istediğimiz için tümleyeni alınır ve normalize edilir
+    #en başarılı birey en yüksek iyiliğe sahip olacak hale getirilir
     probabilities = 1 - probabilities
     if max(probabilities) != 0:
         probabilities /= max(probabilities)
@@ -289,6 +341,13 @@ def fitness_function(population, initial_start, iteration, drones, drone_index):
 
 
 def cross_over(X, Y):
+    '''
+    fonksiyon gelen 2 bireyin crossover noktası kadar noktadan parça değiştirmesini sağlar
+    crossover noktası kadar random indis üretilerek o noktalardan yeni dizi oluşturulur.
+    :param X: birey 1
+    :param Y: birey 2
+    :return: yeni birey
+    '''
     if CROSS_OVER_POINT == 1:
         index = np.random.randint(0, X.shape[1])
         if np.random.rand() > 0.5:
@@ -305,57 +364,82 @@ def cross_over(X, Y):
 
 
 def mutate(child):
+    '''
+    gelen bireyin random bir indisi random bir hareket ile değiştirilir
+    :param child: birey
+    :return: child: mutasyona uğramış birey
+    '''
     child[random.randint(0, child.shape[0] - 1)] = random.randint(1, 8)
     return child
 
 
 def selection(population, population_probabilities):
+    '''
+    Rulet tekeri uygulanarak bir bireyin seçilmesi sağlanır.
+    popülasyonun iyilik değerleri üzerinden bir ağırlıklı seçim yapılır.
+    :param population: popülasyon
+    :param population_probabilities: popülasyonun iyilik durumları
+    :return: population[index] : seçilen birey
+    '''
     index = random.choices(np.arange(0, population.shape[0]), weights=population_probabilities)
     return population[index]
 
 
 def start_field_scanning(drone_count, population_size, initial_start):
+    '''
+    tüm dronelar için genetik algoritma çalıştırılır
+    :param drone_count: alanı tarayacak drone sayısı
+    :param population_size: popülasyon büyüklüğü
+    :param initial_start: başlangıç noktası
+    '''
     drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int32)
     worst_drones = np.zeros(shape=(drone_count, STEP_COUNT), dtype=np.int32)
 
     for drone_index in range(drone_count):
-        # init population
+
+        # ilk popülasyon random sayılar ile oluşturulur
         population = np.random.randint(low=1, high=9, size=(population_size, STEP_COUNT))
         new_population = np.zeros(shape=(population_size, STEP_COUNT), dtype=np.int32)
         best_individuals = np.ones(shape=(GENERATION, STEP_COUNT), dtype=np.int32)
         worst_individuals = np.ones(shape=(GENERATION, STEP_COUNT), dtype=np.int32)
-        generation = 0
 
+        generation = 0
         while generation < GENERATION:
             generation += 1
             if generation % 10 == 0:
-                print(f'iter : {generation}')
+                print(f'drone : {drone_index + 1} - generation : {generation}')
 
+            # popülasyondaki her birey için iyilik değeri hesaplanır
             population_probabilities = fitness_function(population, initial_start, generation, drones, drone_index)
 
-            #loop through population
             for i in range(population.shape[0]):
+                # iyilik değerleriyle ağırlıklandırılmış olasılıklarla 2 birey seçilir
                 X = selection(population, population_probabilities)
                 Y = selection(population, population_probabilities)
+                # belirlenen nokta sayısı ile 2 birey çaprazlanır
                 child = cross_over(X, Y)
-
+                # belirlenen mutasyon oranı ile birey mutasyona uğratılır
                 if MUTATE_PROB > np.random.rand():
                     child = mutate(child)
+
+                # oluşturulan birey yeni popülasyona eklenir
                 new_population[i] = child
 
-            #get most successful indexes
+            # popülasyonun iyilik değerlerine göre indisler küçükten büyüğe sıralanır
             success = np.argsort(population_probabilities, axis=0)
             success_population = np.take_along_axis(population, success, 0)
-
+            # popülasyonun en başarılı bireyi, her jenerasyonun en iyi bireyini tutan diziye yazılır
             best_individuals[generation - 1] = success_population[-1]
             worst_individuals[generation - 1] = success_population[0]
 
+            # belirlenen sayıda en başarılı birey, yeni popülasyona kopyalanır
             new_population[SUCCESS_GENS:, :] = success_population[SUCCESS_GENS:, :]
             population = new_population
 
-        #we got all successful individuals in every generation
+        #tüm jenerasyonlardaki en başarılı bireylerin grafikleri bastırılır
         print_all_statistics(best_individuals, initial_start, drones, drone_index)
 
+        #tüm jenerasyonlardaki başarılı bireyler arasından en başarılı birey seçilerek drone listesine eklenir
         success_population_prob = fitness_function(best_individuals, initial_start, generation, drones, drone_index)
         success = np.argsort(success_population_prob, axis=0)
         success_population = np.take_along_axis(best_individuals, success, 0)
@@ -364,10 +448,12 @@ def start_field_scanning(drone_count, population_size, initial_start):
         worst_drones[drone_index] = success_population[0]
 
     print('Done!')
+    # en başarılı bireyin taradığı alan bastırılır
     for index in range(len(drones)):
         print(f'Birey best: {index}\n')
         print_path(drones[index])
 
+    # taranan alan bastırılır
     print('Best:')
     calculate_scanned_area_of_all_drones(drones, initial_start)
 
